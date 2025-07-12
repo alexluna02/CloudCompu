@@ -1,4 +1,5 @@
 const express = require('express');
+const cors = require('cors'); // ← IMPORTANTE: importar cors
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -6,7 +7,21 @@ const { ComputerVisionClient } = require('@azure/cognitiveservices-computervisio
 const { ApiKeyCredentials } = require('@azure/ms-rest-js');
 
 const app = express();
-const upload = multer({ dest: 'uploads/' });
+
+// 🟩 Activar CORS para permitir peticiones desde el frontend
+app.use(cors());
+
+// Middleware para JSON
+app.use(express.json());
+
+// Configuración de multer
+const storage = multer.diskStorage({
+  destination: './uploads/',
+  filename: (req, file, cb) => {
+    cb(null, file.fieldname + '-' + Date.now() + path.extname(file.originalname));
+  }
+});
+const uploadSingle = multer({ storage: storage }).single('image');
 
 // Credenciales de Azure
 const key = '33zJsVGnJhzkOb9WimRFjJJZAmJCCOm2mLdgRH5lFI4EduX0Bn30JQQJ99BGACYeBjFXJ3w3AAAFACOGHqPM';
@@ -16,19 +31,7 @@ const computerVisionClient = new ComputerVisionClient(
   endpoint
 );
 
-// Middleware para JSON
-app.use(express.json());
-
-// Configuración de almacenamiento
-const storage = multer.diskStorage({
-  destination: './uploads/',
-  filename: (req, file, cb) => {
-    cb(null, file.fieldname + '-' + Date.now() + path.extname(file.originalname));
-  }
-});
-const uploadSingle = multer({ storage: storage }).single('image');
-
-// Endpoint principal
+// Ruta para análisis de imagen
 app.post('/analyze-image', (req, res) => {
   uploadSingle(req, res, async (err) => {
     if (err) return res.status(500).json({ error: 'Error uploading file' });
@@ -69,6 +72,7 @@ app.post('/analyze-image', (req, res) => {
   });
 });
 
+// Puerto del servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
